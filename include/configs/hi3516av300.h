@@ -247,4 +247,6 @@
 
 /* base on needs #define CONFIG_EDMA_PLL_TRAINNING */
 
+#include "hi-common.h"
+
 #endif /* __HI3516AV300_H */

@@ -1,0 +1,15 @@
+if TARGET_HI3562V100
+
+config SYS_BOARD
+	default "hi3562v100"
+
+config SYS_VENDOR
+	default "hisilicon"
+
+config SYS_SOC
+	default "hi3562v100"
+
+config SYS_CONFIG_NAME
+	default "hi3562v100"
+
+endif

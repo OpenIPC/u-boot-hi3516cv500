@@ -293,8 +293,19 @@ int is_auto_update(void)
 #endif
 }
 
+void detect_memory(void) {
+	ulong tested_ram = get_ram_size((long *)PHYS_SDRAM_1, PHYS_SDRAM_1_SIZE)
+		/ 1024 / 1024;
+	printf("Detected RAM size: %dMB\n", tested_ram);
+
+	char msize[128];
+	sprintf(msize, "%dM", tested_ram);
+	setenv("totalmem", msize);
+}
+
 int misc_init_r(void)
 {
+	detect_memory();
 #ifdef CONFIG_RANDOM_ETHADDR
 	random_init_r();
 #endif

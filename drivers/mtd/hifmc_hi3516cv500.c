@@ -81,9 +81,9 @@ void hifmc_get_fmc_best_2x_clock(unsigned int *clock)
 		clk_2x(24), fmc_clk_sel(FMC_CLK_24M),
 		clk_2x(100), fmc_clk_sel(FMC_CLK_100M),
 		clk_2x(150), fmc_clk_sel(FMC_CLK_150M),
-		clk_2x(163), fmc_clk_sel(FMC_CLK_163M),
-		clk_2x(200), fmc_clk_sel(FMC_CLK_200M),
-		clk_2x(257), fmc_clk_sel(FMC_CLK_257M),
+		// clk_2x(163), fmc_clk_sel(FMC_CLK_163M),
+		// clk_2x(200), fmc_clk_sel(FMC_CLK_200M),
+		// clk_2x(257), fmc_clk_sel(FMC_CLK_257M),
 		0,	0,
 	};
 

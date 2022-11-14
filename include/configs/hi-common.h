@@ -1,5 +1,5 @@
 #define CONFIG_BOOTARGS "mem=\${osmem} console=ttyAMA0,115200 panic=20 root=/dev/mtdblock3 rootfstype=squashfs init=/init mtdparts=\${mtdparts} \${extras}"
-#define CONFIG_BOOTCOMMAND "setenv setargs setenv bootargs ${bootargs}; run setargs; sf probe 0; sf read ${baseaddr} 0x50000 0x200000; bootm ${baseaddr}"
+#define CONFIG_BOOTCOMMAND "setenv setargs setenv bootargs ${bootargs}; run setargs; sf probe 0; sf read ${baseaddr} 0x50000 0x300000; bootm ${baseaddr}"
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
     "baseaddr=0x82000000\0" \

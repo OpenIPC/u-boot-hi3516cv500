@@ -94,11 +94,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # hi3516dv300 has no QEMU machine in widgetii/qemu-hisilicon,
-        # so we can't smoke-test it. cv500 and av300 both have machines
-        # and Cortex-A7 CPUs.
+        # All three SoCs in this repo are now testable: hi3516dv300
+        # was added to qemu-hisilicon in #77 (V4A, die-identical to
+        # av300/cv500). All three use the default hisi-fmc flash
+        # binding.
         include:
           - { soc: hi3516cv500, machine: hi3516cv500 }
+          - { soc: hi3516dv300, machine: hi3516dv300 }
           - { soc: hi3516av300, machine: hi3516av300 }
     steps:
       - name: Install QEMU build deps

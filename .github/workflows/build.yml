@@ -94,10 +94,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # All three SoCs in this repo are now testable: hi3516dv300
-        # was added to qemu-hisilicon in #77 (V4A, die-identical to
-        # av300/cv500). All three use the default hisi-fmc flash
-        # binding.
         include:
           - { soc: hi3516cv500, machine: hi3516cv500 }
           - { soc: hi3516dv300, machine: hi3516dv300 }

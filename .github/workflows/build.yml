@@ -13,6 +13,14 @@ jobs:
       fail-fast: false
       matrix:
         soc: [hi3516cv500, hi3516dv300, hi3516av300]
+        # universal = SPI NOR + SPI NAND via the shared HIFMC controller
+        #             (defconfig: <soc>_smp_defconfig)
+        # emmc      = HIMCI host controller for eMMC-soldered boards
+        #             (defconfig: <soc>_emmc_smp_defconfig). The two
+        #             defconfigs are mutually exclusive: HIFMC drops out
+        #             when HIMCI comes in, so the same binary cannot
+        #             cover both storage paths.
+        variant: [universal, emmc]
 
     steps:
       - name: Install 32-bit libs
@@ -51,10 +59,14 @@ jobs:
         run: |
           export PATH="$PWD/toolchain/arm-himix100-linux/bin:$PATH"
           make clean
-          # Kbuild-style: defconfig comes from configs/<soc>_smp_defconfig
+          case "${{ matrix.variant }}" in
+            universal) DEFCONFIG="${{ matrix.soc }}_smp_defconfig" ;;
+            emmc)      DEFCONFIG="${{ matrix.soc }}_emmc_smp_defconfig" ;;
+          esac
+          # Kbuild-style: defconfig comes from configs/$DEFCONFIG
           # and the register init blob has a different naming convention
           # in this repo (`reginfo-` not `reg_info_`).
-          make CROSS_COMPILE=arm-himix100-linux- ${{ matrix.soc }}_smp_defconfig
+          make CROSS_COMPILE=arm-himix100-linux- "$DEFCONFIG"
           cp reginfo-${{ matrix.soc }}.bin .reg
           make CROSS_COMPILE=arm-himix100-linux- -j$(nproc)
           if [ ! -f tools/hi_gzip/bin/gzip ]; then
@@ -65,7 +77,8 @@ jobs:
           cp -rf tools/hi_gzip/bin/gzip \
             arch/arm/cpu/armv7/${{ matrix.soc }}/hw_compressed/
           make CROSS_COMPILE=arm-himix100-linux- u-boot-z.bin
-          cp u-boot-${{ matrix.soc }}.bin u-boot-${{ matrix.soc }}-universal.bin
+          cp u-boot-${{ matrix.soc }}.bin \
+             u-boot-${{ matrix.soc }}-${{ matrix.variant }}.bin
 
       - name: Check partition fit
         run: |
@@ -73,7 +86,7 @@ jobs:
           # across every NOR/NAND/UBI variant. Anything past that
           # overflows into env at offset 0x40000 and bricks the device
           # on upgrade. Mirrors OpenIPC/firmware Makefile CHECK_SIZE.
-          FILE=u-boot-${{ matrix.soc }}-universal.bin
+          FILE=u-boot-${{ matrix.soc }}-${{ matrix.variant }}.bin
           LIMIT_KB=256
           SIZE_KB=$(($(stat -c %s "$FILE") / 1024))
           echo "- $FILE: [${SIZE_KB}KB/${LIMIT_KB}KB]"
@@ -85,8 +98,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: u-boot-${{ matrix.soc }}-universal
-          path: u-boot-${{ matrix.soc }}-universal.bin
+          name: u-boot-${{ matrix.soc }}-${{ matrix.variant }}
+          path: u-boot-${{ matrix.soc }}-${{ matrix.variant }}.bin
 
   qemu_smoke:
     needs: build
@@ -95,9 +108,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { soc: hi3516cv500, machine: hi3516cv500 }
-          - { soc: hi3516dv300, machine: hi3516dv300 }
-          - { soc: hi3516av300, machine: hi3516av300 }
+          - { soc: hi3516cv500, machine: hi3516cv500, variant: universal }
+          - { soc: hi3516dv300, machine: hi3516dv300, variant: universal }
+          - { soc: hi3516av300, machine: hi3516av300, variant: universal }
+          - { soc: hi3516cv500, machine: hi3516cv500, variant: emmc }
+          - { soc: hi3516dv300, machine: hi3516dv300, variant: emmc }
+          - { soc: hi3516av300, machine: hi3516av300, variant: emmc }
     steps:
       - name: Install QEMU build deps
         run: |
@@ -133,19 +149,31 @@ jobs:
       - name: Download u-boot artifact
         uses: actions/download-artifact@v4
         with:
-          name: u-boot-${{ matrix.soc }}-universal
+          name: u-boot-${{ matrix.soc }}-${{ matrix.variant }}
 
       - name: Smoke-test in QEMU
         timeout-minutes: 2
         run: |
-          UBOOT="$PWD/u-boot-${{ matrix.soc }}-universal.bin"
+          UBOOT="$PWD/u-boot-${{ matrix.soc }}-${{ matrix.variant }}.bin"
           test -f "$UBOOT"
           dd if=/dev/zero of=/tmp/flash.bin bs=1M count=8 2>/dev/null
           dd if="$UBOOT" of=/tmp/flash.bin bs=1 conv=notrunc 2>/dev/null
           mkfifo /tmp/uart.in /tmp/uart.out
+
+          # The eMMC build probes the HIMCI host controller during init;
+          # qemu-hisilicon's V4/V4A machines model himci at 0x10020000
+          # but need an SD/MMC backend attached so the probe has a target.
+          # 64 MiB blank image is enough for u-boot to enumerate.
+          EXTRA_QEMU=()
+          if [ "${{ matrix.variant }}" = emmc ]; then
+            dd if=/dev/zero of=/tmp/mmc.img bs=1M count=64 2>/dev/null
+            EXTRA_QEMU=(-drive "if=sd,format=raw,file=/tmp/mmc.img")
+          fi
+
           chmod +x ./qemu-arm
           ./qemu-arm \
             -M ${{ matrix.machine }},flash-file=/tmp/flash.bin \
+            "${EXTRA_QEMU[@]}" \
             -nographic -serial pipe:/tmp/uart \
             -monitor none > /tmp/qemu.log 2>&1 &
           QEMU_PID=$!
@@ -190,7 +218,9 @@ jobs:
             done
           }
           for soc in hi3516cv500 hi3516dv300 hi3516av300; do
-            f="artifacts/u-boot-${soc}-universal/u-boot-${soc}-universal.bin"
-            test -f "$f"
-            upload "$f"
+            for variant in universal emmc; do
+              f="artifacts/u-boot-${soc}-${variant}/u-boot-${soc}-${variant}.bin"
+              test -f "$f"
+              upload "$f"
+            done
           done
